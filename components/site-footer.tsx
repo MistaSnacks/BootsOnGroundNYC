@@ -3,8 +3,8 @@ import Link from "next/link";
 export function SiteFooter() {
   return (
     <footer className="border-t-2 border-ink bg-ink text-cream">
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 md:grid-cols-4 md:px-8">
-        <div className="md:col-span-2">
+      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 px-5 py-16 md:grid-cols-4 md:px-8">
+        <div className="col-span-2">
           <p className="font-display text-4xl uppercase leading-none md:text-6xl">
             Boots on Ground
           </p>
@@ -42,8 +42,14 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-cream/15 px-5 py-6 text-xs leading-relaxed text-cream/50 md:px-8">
-        Boots On Ground Inc · New York State Domestic Not-For-Profit Corporation · DOS ID 5949961 ·
-        Incorporated 2021
+        <a
+          href="https://www.mcmathmatics.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-sun"
+        >
+          Powered by Simplemcmathematics
+        </a>
       </div>
     </footer>
   );

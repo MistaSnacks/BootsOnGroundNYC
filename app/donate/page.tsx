@@ -32,7 +32,7 @@ export default function Donate() {
               key={t.amt}
               delay={i * 110}
               from="up"
-              className="border-b-2 border-ink p-8 md:border-b-0 md:border-r-2 md:p-10 md:last:border-r-0"
+              className="border-b-2 border-ink p-8 last:border-b-0 md:border-b-0 md:border-r-2 md:p-10 md:last:border-r-0"
             >
               <p className="font-display text-6xl md:text-7xl">{t.amt}</p>
               <p className="mt-4 text-sm text-ink/70">{t.d}</p>

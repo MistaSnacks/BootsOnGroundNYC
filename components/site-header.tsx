@@ -43,7 +43,12 @@ export function SiteHeader() {
           </Link>
         </nav>
 
-        <button className="md:hidden" aria-label="Toggle menu" onClick={() => setOpen((v) => !v)}>
+        <button
+          className="-m-3 p-3 md:hidden"
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
           {open ? <X /> : <Menu />}
         </button>
       </div>

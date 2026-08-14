@@ -59,7 +59,7 @@ export default function Programs() {
           <section
             key={p.n}
             style={{ zIndex: i + 1 }}
-            className={`sticky top-[68px] border-y-2 border-ink shadow-[0_-24px_60px_-30px_rgba(0,0,0,0.55)] ${
+            className={`sticky top-14 md:top-[68px] border-y-2 border-ink shadow-[0_-24px_60px_-30px_rgba(0,0,0,0.55)] ${
               i % 2 === 1 ? "bg-sun" : "bg-cream"
             }`}
           >
@@ -110,7 +110,7 @@ export default function Programs() {
       <section className="relative z-10 border-t-2 border-ink bg-sun shadow-[0_-24px_60px_-30px_rgba(0,0,0,0.55)]">
         <div className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-5 py-20 md:flex-row md:items-center md:justify-between md:px-8">
           <h2 className="text-4xl md:text-6xl">Need help, or want to help?</h2>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/contact"
               className="eyebrow border-2 border-ink px-7 py-4 hover:bg-ink hover:text-cream"

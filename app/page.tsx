@@ -122,7 +122,7 @@ export default function Home() {
               key={s.label}
               delay={i * 120}
               from="scale"
-              className="border-b-2 border-r-2 border-ink px-5 py-10 last:border-r-0 md:border-b-0 md:px-8 md:py-14"
+              className="border-ink px-5 py-10 max-md:odd:border-r-2 max-md:[&:nth-child(-n+2)]:border-b-2 md:border-r-2 md:last:border-r-0 md:px-8 md:py-14"
             >
               <CountUp value={s.value} className="font-display text-5xl leading-none md:text-6xl" />
               <p className="eyebrow mt-3 text-ink/60">{s.label}</p>

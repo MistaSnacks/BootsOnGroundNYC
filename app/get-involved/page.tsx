@@ -55,7 +55,7 @@ export default function GetInvolved() {
           {ways.map((w) => (
             <div
               key={w.t}
-              className="group border-b-2 border-ink p-8 transition-colors hover:bg-sun md:border-r-2 md:p-10"
+              className="group border-b-2 border-ink p-8 transition-colors hover:bg-sun max-md:last:border-b-0 md:border-r-2 md:p-10 md:[&:nth-child(3n)]:border-r-0 md:[&:nth-child(n+4)]:border-b-0"
             >
               <p className="eyebrow text-ink/50">{w.time}</p>
               <h2 className="mt-3 text-3xl md:text-4xl">{w.t}</h2>
