@@ -1,26 +1,122 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Boots On Ground — design system.
+ * Ported from the Lovable build. Palette independently corroborated by the
+ * research: charity: water, Feeding America and Farm Africa all ship this
+ * same warm gold / olive / cream / warm-black structure.
+ * Nothing here is pure #000 or #fff — every neutral is warmed.
+ */
+@theme {
+  --color-ink: oklch(0.16 0.01 90);
+  --color-ink-2: oklch(0.24 0.015 92);
+  --color-sun: oklch(0.83 0.16 87);
+  --color-sun-deep: oklch(0.74 0.16 74);
+  --color-cream: oklch(0.97 0.015 90);
+  --color-olive: oklch(0.46 0.06 122);
+  --color-brick: oklch(0.52 0.16 32);
+
+  /* Black Ops One ships ONE weight and breaks up below ~32px.
+     Anything smaller than that must use --font-sans at 800 instead. */
+  --font-display: var(--font-black-ops), "Arial Black", sans-serif;
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+
+  --radius: 0.125rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html,
+  body {
+    /* Reveal's hidden state translates 40px; without this the page
+       scrolls sideways on mobile until the animation lands. */
+    overflow-x: clip;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    /* single-weight face — never synthesise bold, it smears the stencil breaks */
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+  }
+
+  /* card + footer scale — below the display floor */
+  h4 {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+
+  ::selection {
+    background: var(--color-sun);
+    color: var(--color-ink);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* 12.8px — far below the display floor, so heavy Archivo carries it */
+@utility eyebrow {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+@utility tilt-card {
+  transition:
+    transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 400ms ease;
+  &:hover {
+    transform: translateY(-10px) rotate(-1deg);
+    box-shadow: 12px 12px 0 var(--color-ink);
+  }
+}
+
+@utility marquee-track {
+  animation: marquee 34s linear infinite;
+}
+
+@utility float-slow {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
