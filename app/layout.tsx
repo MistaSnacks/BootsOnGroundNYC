@@ -20,6 +20,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bootsongroundnyc.vercel.app"),
   title: {
     default: "Boots On Ground Inc — Everyone deserves a hot meal",
     template: "%s · Boots On Ground Inc",
