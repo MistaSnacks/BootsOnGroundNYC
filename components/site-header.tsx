@@ -5,16 +5,17 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
-const links = [
-  { to: "/about", label: "Our Story" },
-  { to: "/programs", label: "What We Do" },
-  { to: "/get-involved", label: "Get Involved" },
-  { to: "/contact", label: "Contact" },
-];
-
-export function SiteHeader() {
+export function SiteHeader({
+  links,
+  cta,
+}: {
+  links: { to: string; label: string }[];
+  cta?: { label?: string; href?: string };
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const ctaLabel = cta?.label ?? "Donate";
+  const ctaHref = cta?.href ?? "/donate";
 
   return (
     <header className="sticky top-0 z-50 border-b-2 border-ink bg-sun">
@@ -36,10 +37,10 @@ export function SiteHeader() {
             </Link>
           ))}
           <Link
-            href="/donate"
+            href={ctaHref}
             className="eyebrow bg-ink px-5 py-3 text-cream transition-transform hover:-translate-y-0.5"
           >
-            Donate
+            {ctaLabel}
           </Link>
         </nav>
 
@@ -55,7 +56,7 @@ export function SiteHeader() {
 
       {open && (
         <nav className="flex flex-col border-t-2 border-ink md:hidden">
-          {[...links, { to: "/donate", label: "Donate" }].map((l) => (
+          {[...links, { to: ctaHref, label: ctaLabel }].map((l) => (
             <Link
               key={l.to}
               href={l.to}
