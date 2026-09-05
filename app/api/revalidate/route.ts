@@ -1,6 +1,17 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
+// Read-only readiness checks must never call the publication handler. The
+// capability marker prevents an HTML catch-all or old GET route looking ready.
+export async function GET(req: Request) {
+  const secret = req.headers.get("x-revalidation-secret") ?? req.headers.get("x-revalidate-secret");
+  const headers = { "Cache-Control": "no-store" };
+  if (!secret || secret !== process.env.REVALIDATION_SECRET) {
+    return NextResponse.json({ ok: false }, { status: 401, headers });
+  }
+  return NextResponse.json({ ok: true, snackbox: { revalidate: 1, visualEditing: 1 } }, { headers });
+}
+
 // SnackBox POSTs here when content changes. Secret is shared with the CMS
 // (REVALIDATE_SECRET_<SLUG> on the CMS side, REVALIDATION_SECRET here).
 export async function POST(req: Request) {
