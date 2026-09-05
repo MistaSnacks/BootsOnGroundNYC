@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Black_Ops_One, Archivo } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { getBranding, getNavItems, getSiteSettings } from "@/lib/cms/content";
 import "./globals.css";
+
+// SnackBox on-page editing: overlay.js is inert for the public and activates
+// only for signed-in editors. Same origin as the CMS API and the field editor.
+const SNACKBOX_URL = (process.env.NEXT_PUBLIC_SNACKBOX_URL ?? "https://snackboxcms.com").replace(/\/$/, "");
+const SNACKBOX_PROJECT = process.env.NEXT_PUBLIC_SNACKBOX_PROJECT ?? "bootsonground";
 
 /* Confirmed brand display face — also what the Squarespace template used, and
    almost certainly what the logo wordmark was set in. One weight only. */
@@ -52,6 +58,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         />
         <main className="flex-1">{children}</main>
         <SiteFooter settings={settings} />
+        <Script
+          id="snackbox-overlay"
+          strategy="afterInteractive"
+          src={`${SNACKBOX_URL}/overlay.js`}
+          data-project={SNACKBOX_PROJECT}
+        />
       </body>
     </html>
   );

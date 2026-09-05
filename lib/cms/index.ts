@@ -16,8 +16,13 @@ if (!project) throw new Error("NEXT_PUBLIC_SNACKBOX_PROJECT is not set — see .
 export const site = cms(project, {
   editMode: async () => {
     try {
-      const { draftMode, cookies } = await import("next/headers");
+      const { draftMode, cookies, headers } = await import("next/headers");
+      // draftMode() first: reading isEnabled does not opt the route into
+      // dynamic rendering, so public pages stay static/ISR. headers() and
+      // cookies() are only touched inside an edit session.
       if (!(await draftMode()).isEnabled) return false;
+      // sbx-public=1 (proxy.ts) renders published content for one request.
+      if ((await headers()).get("x-sbx-public-view") === "1") return false;
       return (await cookies()).get("sbx-edit-token")?.value ?? true;
     } catch {
       return false; // browser or non-request scope
@@ -29,3 +34,6 @@ export { cms };
 // section; formGuardFields() must be captured at render time, not on submit.
 export { formGuardFields, honeypotInputProps, HONEYPOT_FIELD, RENDERED_AT_FIELD, SnackboxError } from "./sdk";
 export type { FormGuardFields } from "./sdk";
+
+export { editableField, editablePage, stegaClean } from "./sdk";
+export type { PageDocument } from "./sdk";

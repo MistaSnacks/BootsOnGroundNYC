@@ -17,7 +17,7 @@
  * a published change stays invisible, which is the thing clients notice and
  * report as "the CMS isn't working".
  */
-const DEFAULT_REVALIDATE = 60;
+const DEFAULT_REVALIDATE = 15;
 
 /**
  * Cache tags, mirroring src/lib/revalidate.ts on the CMS side. Every cached
@@ -38,7 +38,7 @@ export interface CmsOptions {
   /** write/admin token — only needed for mutate() */
   token?: string;
   /**
-   * Seconds to cache reads for. Defaults to 60.
+   * Seconds to cache reads for. Defaults to 15.
    *
    * This is the number that decides how long after publishing a client sees
    * their change, and it is easy to misread: revalidatePath() purges Next's
@@ -137,7 +137,8 @@ export class QueryBuilder<T = Record<string, unknown>> {
 export class SnackboxError extends Error {
   constructor(
     readonly status: number,
-    readonly detail: string
+    readonly detail: string,
+    readonly context: { code?: string; currentRevision?: string; traceId?: string } = {}
   ) {
     super(`SnackBox ${status}: ${detail}`);
     this.name = "SnackboxError";
@@ -145,9 +146,11 @@ export class SnackboxError extends Error {
 }
 
 export interface Mutation {
-  create?: { type: string; data: Record<string, unknown>; id?: string };
-  patch?: { id: string; set?: Record<string, unknown>; unset?: string[] };
-  delete?: { id: string };
+  create?: { type: string; data: Record<string, unknown>; id?: string; locale?: string; expectedRevision?: string };
+  patch?: { id: string; set?: Record<string, unknown>; unset?: string[]; expectedRevision?: string };
+  delete?: { id: string; expectedRevision?: string };
+  publish?: { id: string; expectedRevision?: string };
+  discardDraft?: { id: string; expectedRevision?: string };
 }
 
 export class CmsClient {
@@ -207,18 +210,33 @@ export class CmsClient {
       delete fetchInit.next;
     }
     const res = await fetch(`${this.baseUrl}/api/v1/${this.project}/${path}`, fetchInit);
-    const body = (await res.json()) as R & { error?: string };
-    if (!res.ok) throw new SnackboxError(res.status, body.error ?? "request failed");
-    return body;
+    const text = await res.text();
+    let parsed: (R & { error?: string }) | undefined;
+    try {
+      parsed = text ? (JSON.parse(text) as R & { error?: string }) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+    if (!res.ok) {
+      const detail =
+        (parsed && typeof parsed.error === "string" && parsed.error) ||
+        (text && !text.startsWith("<") ? text.slice(0, 200) : "") ||
+        `CMS returned a non-JSON ${res.status} response`;
+      throw new SnackboxError(res.status, detail, (parsed ?? {}) as { code?: string; currentRevision?: string; traceId?: string });
+    }
+    if (parsed === undefined) {
+      throw new SnackboxError(res.status, "CMS returned a non-JSON response");
+    }
+    return parsed as R;
   }
 
   query<T = Record<string, unknown>>(type: string): QueryBuilder<T> {
     return new QueryBuilder<T>(this, type);
   }
 
-  async doc<T = Record<string, unknown>>(id: string): Promise<T | null> {
+  async doc<T = Record<string, unknown>>(id: string, opts: { locale?: string } = {}): Promise<T | null> {
     try {
-      const { result } = await this.request<{ result: T }>(`doc/${id}`, {}, { doc: id });
+      const { result } = await this.request<{ result: T }>(`doc/${encodeURIComponent(id)}${opts.locale ? `?locale=${encodeURIComponent(opts.locale)}` : ""}`, {}, { doc: id });
       return result;
     } catch (e) {
       if (e instanceof Error && e.message.includes("404")) return null;
@@ -234,7 +252,7 @@ export class CmsClient {
   }
 
   /** write path — requires a write/admin token */
-  async mutate(mutations: Mutation[], opts: { locale?: string; actor?: string } = {}) {
+  async mutate(mutations: Mutation[], opts: { locale?: string; actor?: string; operationId?: string; perspective?: "draft" | "published" } = {}) {
     return this.request<{ results: unknown[] }>("mutate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -279,7 +297,7 @@ export class CmsClient {
     docId: string,
     guest: { name: string; email: string; answers?: Record<string, unknown> }
   ) {
-    return this.request<{ ok: boolean; id: string; status: string; duplicate: boolean }>(
+    return this.request<{ ok: boolean; status: string }>(
       `events/${collection}/${docId}/register`,
       {
         method: "POST",
@@ -291,7 +309,7 @@ export class CmsClient {
 
   /** Add-to-calendar download for one event. */
   icsEventUrl(collection: string, docId: string): string {
-    return `${this.baseUrl}/api/v1/${this.project}/events/${collection}/${docId}/event.ics`;
+    return `${this.baseUrl}/api/v1/${this.project}/events/${stegaClean(collection)}/${stegaClean(docId)}/event.ics`;
   }
 
   /**
@@ -299,7 +317,7 @@ export class CmsClient {
    * URL to the OS calendar app instead of downloading a file — same endpoint.
    */
   icsFeedUrl(collection: string, opts: { webcal?: boolean } = {}): string {
-    const url = `${this.baseUrl}/api/v1/${this.project}/events/${collection}/feed.ics`;
+    const url = `${this.baseUrl}/api/v1/${this.project}/events/${stegaClean(collection)}/feed.ics`;
     return opts.webcal ? url.replace(/^https?:/, "webcal:") : url;
   }
 }
@@ -373,6 +391,8 @@ export const honeypotInputProps = {
 // ---------------------------------------------------------------------------
 
 export interface ImageValue {
+  /** Placement accessibility metadata; decorative images resolve to empty alt. */
+  decorative?: boolean;
   _ref?: string;
   url?: string;
   alt?: string;
@@ -382,15 +402,24 @@ export interface ImageValue {
 
 const pct = (n: number) => `${Math.round(n * 10000) / 100}%`;
 
+const STEGA_BLOCK = /\u200D[\u200B\u200C]*\u2060/g;
+
+/** Strip stega payloads from a string (or pass non-strings through). */
+export function stegaClean<T>(value: T): T {
+  if (typeof value === "string") return value.replace(STEGA_BLOCK, "") as T;
+  return value;
+}
+
 /** resolved URL of an .include()d image field — null when empty/unresolved */
 export function imageUrl(img: ImageValue | null | undefined): string | null {
-  return img?.url ?? null;
+  const url = img?.url ?? null;
+  return url === null ? null : stegaClean(url);
 }
 
 /** CSS object-position honoring the hotspot (or the crop's center) */
 export function imagePosition(img: ImageValue | null | undefined): string | undefined {
-  if (img?.hotspot) return `${pct(img.hotspot.x)} ${pct(img.hotspot.y)}`;
-  if (img?.crop) return `${pct(img.crop.left + img.crop.width / 2)} ${pct(img.crop.top + img.crop.height / 2)}`;
+  if (img?.hotspot) return stegaClean(`${pct(img.hotspot.x)} ${pct(img.hotspot.y)}`);
+  if (img?.crop) return stegaClean(`${pct(img.crop.left + img.crop.width / 2)} ${pct(img.crop.top + img.crop.height / 2)}`);
   return undefined;
 }
 
@@ -568,14 +597,14 @@ const EVENT_STATUS: Record<string, string> = {
 function placeFor(venue: EventVenue): Record<string, unknown> {
   const a = venue.address ?? {};
   const address: Record<string, unknown> = { "@type": "PostalAddress" };
-  if (a.street) address.streetAddress = a.street;
-  if (a.city) address.addressLocality = a.city;
-  if (a.region) address.addressRegion = a.region;
-  if (a.postalCode) address.postalCode = a.postalCode;
-  if (a.country) address.addressCountry = a.country;
+  if (a.street) address.streetAddress = stegaClean(a.street);
+  if (a.city) address.addressLocality = stegaClean(a.city);
+  if (a.region) address.addressRegion = stegaClean(a.region);
+  if (a.postalCode) address.postalCode = stegaClean(a.postalCode);
+  if (a.country) address.addressCountry = stegaClean(a.country);
 
   const place: Record<string, unknown> = { "@type": "Place" };
-  if (venue.name) place.name = venue.name;
+  if (venue.name) place.name = stegaClean(venue.name);
   if (Object.keys(address).length > 1) place.address = address;
   if (typeof venue.geo?.lat === "number" && typeof venue.geo?.lng === "number") {
     place.geo = { "@type": "GeoCoordinates", latitude: venue.geo.lat, longitude: venue.geo.lng };
@@ -587,34 +616,35 @@ export function eventJsonLd(
   event: EventDoc,
   opts: { url?: string | null; organizerName?: string | null; organizerUrl?: string | null } = {}
 ): Record<string, unknown> {
-  const tz = event.timezone && isValidTimeZone(event.timezone) ? event.timezone : null;
+  const tz = event.timezone && isValidTimeZone(stegaClean(event.timezone)) ? stegaClean(event.timezone) : null;
   const ld: Record<string, unknown> = { "@context": "https://schema.org", "@type": "Event" };
-  if (event.title) ld.name = event.title;
-  if (event.excerpt) ld.description = event.excerpt;
-  if (event.start && tz) ld.startDate = isoWithOffset(event.start, tz);
-  if (event.end && tz) ld.endDate = isoWithOffset(event.end, tz);
-  if (event.previousStart && tz) ld.previousStartDate = isoWithOffset(event.previousStart, tz);
+  if (event.title) ld.name = stegaClean(event.title);
+  if (event.excerpt) ld.description = stegaClean(event.excerpt);
+  if (event.start && tz) ld.startDate = isoWithOffset(stegaClean(event.start), tz);
+  if (event.end && tz) ld.endDate = isoWithOffset(stegaClean(event.end), tz);
+  if (event.previousStart && tz) ld.previousStartDate = isoWithOffset(stegaClean(event.previousStart), tz);
 
-  const mode = event.attendanceMode ?? "in_person";
+  const mode = stegaClean(event.attendanceMode) ?? "in_person";
   ld.eventAttendanceMode = ATTENDANCE_MODE[mode] ?? ATTENDANCE_MODE.in_person;
-  ld.eventStatus = EVENT_STATUS[event.status ?? "scheduled"] ?? EVENT_STATUS.scheduled;
+  ld.eventStatus = EVENT_STATUS[stegaClean(event.status) ?? "scheduled"] ?? EVENT_STATUS.scheduled;
 
   const place = event.venue ? placeFor(event.venue) : null;
   // VirtualLocation points at the public event page: the real join link is
   // gated to confirmed guests (spec §1) and must never be published here.
-  const virtual = opts.url ? { "@type": "VirtualLocation", url: opts.url } : null;
+  const pageUrl = opts.url ? stegaClean(opts.url) : null;
+  const virtual = pageUrl ? { "@type": "VirtualLocation", url: pageUrl } : null;
   if (mode === "hybrid" && place && virtual) ld.location = [place, virtual];
   else if (mode === "online" && virtual) ld.location = virtual;
   else if (place) ld.location = place;
 
   const img = imageUrl(event.image);
   if (img) ld.image = img;
-  if (opts.url) ld.url = opts.url;
+  if (pageUrl) ld.url = pageUrl;
   if (opts.organizerName) {
     ld.organizer = {
       "@type": "Organization",
-      name: opts.organizerName,
-      ...(opts.organizerUrl ? { url: opts.organizerUrl } : {}),
+      name: stegaClean(opts.organizerName),
+      ...(opts.organizerUrl ? { url: stegaClean(opts.organizerUrl) } : {}),
     };
   }
   return ld;
@@ -632,11 +662,24 @@ export function googleCalendarUrl(
   const end = eventEndUtc(event) ?? new Date(start.getTime() + 2 * 3600_000);
   const params = new URLSearchParams({
     action: "TEMPLATE",
-    text: event.title ?? "Event",
+    text: stegaClean(event.title) ?? "Event",
     dates: `${stamp(start)}/${stamp(end)}`,
   });
-  const details = [event.excerpt, opts.url].filter(Boolean).join("\n\n");
+  const details = [stegaClean(event.excerpt), stegaClean(opts.url)].filter(Boolean).join("\n\n");
   if (details) params.set("details", details);
-  if (opts.location) params.set("location", opts.location);
+  if (opts.location) params.set("location", stegaClean(opts.location));
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+
+/** Exact editable source binding, including blank/image-only fields. */
+export function editableField(docId: string, fieldPath: string, locale?: string) {
+  return { "data-sbx-doc": docId, "data-sbx-field": fieldPath,
+    ...(locale ? { "data-sbx-locale": locale } : {}) };
+}
+
+export interface PageDocument { docId: string; title: string; locale?: string }
+/** Attach to the overlay script so the page picker includes unrendered fields. */
+export function editablePage(documents: PageDocument[], locale?: string) {
+  return { "data-documents": JSON.stringify(documents), ...(locale ? { "data-locale": locale } : {}) };
 }
