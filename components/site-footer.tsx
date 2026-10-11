@@ -3,7 +3,6 @@ import type { SiteSettings } from "@/lib/cms/content";
 
 export function SiteFooter({ settings }: { settings: SiteSettings | null }) {
   const links = settings?.footerLinks ?? [];
-  const credit = settings?.footerCredit;
   return (
     <footer className="border-t-2 border-ink bg-ink text-cream">
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 px-5 py-16 md:grid-cols-4 md:px-8">
@@ -39,18 +38,10 @@ export function SiteFooter({ settings }: { settings: SiteSettings | null }) {
           </ul>
         </div>
       </div>
-      {credit?.label && (
-        <div className="border-t border-cream/15 px-5 py-6 text-xs leading-relaxed text-cream/50 md:px-8">
-          <a
-            href={credit.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-sun"
-          >
-            {credit.label}
-          </a>
-        </div>
-      )}
+      <div className="border-t border-cream/15 px-5 py-6 text-xs leading-relaxed text-cream/50 md:px-8">
+        Site by McMathematics · Powered by{" "}
+        <a href="https://snackboxcms.com" target="_blank" rel="noopener" className="hover:text-sun">SnackBox</a>
+      </div>
     </footer>
   );
 }
